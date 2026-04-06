@@ -32,6 +32,7 @@ jobs:
           pyinstaller --noconfirm DistribuidorArquivos.spec
 
       - name: Preparar release/app
+        shell: cmd
         run: |
           if exist release rmdir /s /q release
           mkdir release
@@ -45,6 +46,7 @@ jobs:
           mkdir release\app\relatorios
 
       - name: Gerar instalador com Inno Setup
+        shell: cmd
         run: |
           "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
@@ -52,10 +54,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DistribuidorArquivos-Setup
-          path: release/DistribuidorArquivos_Setup.exe
+          path: release\DistribuidorArquivos_Setup.exe
 
       - name: Upload do EXE
         uses: actions/upload-artifact@v4
         with:
           name: DistribuidorArquivos-EXE
-          path: dist/DistribuidorArquivos.exe
+          path: dist\DistribuidorArquivos.exe
