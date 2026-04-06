@@ -1,0 +1,4 @@
+watchdog
+openpyxl
+python-dotenv
+pyinstaller
