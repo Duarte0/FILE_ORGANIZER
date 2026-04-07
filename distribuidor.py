@@ -31,6 +31,7 @@ class DistribuidorArquivos:
     REGEX_NOME_ARQUIVO = re.compile(
         r"^\s*(?P<tipo>.+?)\s*-\s*(?P<empresa>.+?)\s*-\s*(?P<competencia>\d{2}\.\d{4})\.(?P<extensao>[^.]+)\s*$"
     )
+    PLACEHOLDER_DESKTOP = "{DESKTOP}"
 
     def __init__(self, base_dir: str, pasta_entrada: str, pasta_excel: str, pasta_relatorios: str, logger):
         self.base_dir = os.path.abspath(base_dir)
@@ -53,12 +54,27 @@ class DistribuidorArquivos:
         if not caminho:
             return self.base_dir
 
-        caminho_expandido = os.path.expandvars(caminho.strip())
+        caminho_expandido = caminho.strip().replace(self.PLACEHOLDER_DESKTOP, self._obter_pasta_desktop())
+        caminho_expandido = os.path.expandvars(caminho_expandido)
 
         if os.path.isabs(caminho_expandido):
             return os.path.normpath(caminho_expandido)
 
         return os.path.normpath(os.path.join(self.base_dir, caminho_expandido))
+
+    def _obter_pasta_desktop(self) -> str:
+        home = os.path.expanduser("~")
+        candidatos = [
+            os.path.join(home, "Desktop"),
+            os.path.join(home, "Área de Trabalho"),
+            os.path.join(home, "Área de trabalho"),
+        ]
+
+        for caminho in candidatos:
+            if os.path.isdir(caminho):
+                return caminho
+
+        return candidatos[0]
 
     def _normalizar_texto(self, valor) -> str:
         if valor is None:
@@ -261,6 +277,21 @@ class DistribuidorArquivos:
                 return candidato
             contador += 1
 
+    def _montar_pasta_destino(self, empresa: dict, rota: dict, dados_nome: dict) -> str:
+        subpasta_modelo = rota["subpasta"]
+        subpasta = (
+            subpasta_modelo.replace("{ANO}", dados_nome["ano"])
+            .replace("{MES}", dados_nome["mes"])
+            .replace("{COMPETENCIA}", dados_nome["competencia"])
+        )
+
+        pasta_destino = os.path.normpath(os.path.join(empresa["caminho_base"], subpasta))
+
+        if "{MES}" in subpasta_modelo or "{COMPETENCIA}" in subpasta_modelo:
+            return pasta_destino
+
+        return os.path.join(pasta_destino, dados_nome["mes"])
+
     def _rotacionar_relatorio_se_necessario(self, data_atual) -> None:
         with self._lock_registros:
             if self._data_registros != data_atual and self._registros:
@@ -418,9 +449,8 @@ class DistribuidorArquivos:
                     f"O tipo de documento '{tipo_documento}' nao possui rota cadastrada na aba ROTAS.",
                 )
 
-            # Etapa 5: monta o caminho final substituindo o placeholder {ANO} quando existir.
-            subpasta = rota["subpasta"].replace("{ANO}", dados_nome["ano"])
-            pasta_destino = os.path.normpath(os.path.join(empresa["caminho_base"], subpasta))
+            # Etapa 5: monta o caminho final substituindo placeholders e acrescentando a pasta mensal.
+            pasta_destino = self._montar_pasta_destino(empresa, rota, dados_nome)
 
             try:
                 # Etapa 6: cria as pastas intermediarias e move o arquivo para o destino final.
